@@ -1,0 +1,4 @@
+com.barnav.vidsrctv:drawable/vidsrc_mark = 0x7f010003
+com.barnav.vidsrctv:drawable/vidsrc_logo = 0x7f010002
+com.barnav.vidsrctv:drawable/icon = 0x7f010001
+com.barnav.vidsrctv:drawable/banner = 0x7f010000
