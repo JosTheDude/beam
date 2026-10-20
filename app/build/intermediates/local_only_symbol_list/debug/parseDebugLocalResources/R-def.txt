@@ -1,6 +1,0 @@
-R_DEF: Internal format may change without notice
-local
-drawable banner
-drawable icon
-drawable vidsrc_logo
-drawable vidsrc_mark
