@@ -42,6 +42,14 @@
   .ep .n { color:var(--accent); font-size:14px; font-weight:700; }
   .ep .t { font-size:16px; margin-top:2px; }
   .ep.last .n::after { content:"  ·  last watched"; color:var(--dim); font-weight:400; }
+  /* Selected item: yellow outline + glow, lifted, everything else in its row dimmed. Last so it wins. */
+  .card, .ep, .pill { transition:transform .12s, opacity .12s, box-shadow .12s; }
+  .card.focus, .ep.focus, .pill.focus { border-color:var(--accent); opacity:1;
+    box-shadow:0 0 0 3px var(--accent), 0 0 28px rgba(247,197,92,.55); position:relative; z-index:1; }
+  .card.focus, .ep.focus { transform:scale(1.08); }
+  .pill.focus { transform:scale(1.1); }
+  .grid:has(.focus) .card:not(.focus), .eps:has(.focus) .ep:not(.focus) { opacity:.55; }
+  .ep.focus .t, .card.focus .t { color:#fff; }
   .hint { position:fixed; bottom:16px; right:24px; color:var(--dim); font-size:14px; }
 </style>
 </head>
