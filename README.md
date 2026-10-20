@@ -35,6 +35,10 @@ APK ends up in `app/build/outputs/apk/debug/`.
 - Back to go back
 - Menu, or the logo, to go home
 
+## Credits
+
+This product uses the TMDB API but is not endorsed or certified by TMDB.
+
 ## License
 
 MIT
