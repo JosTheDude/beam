@@ -1,4 +1,4 @@
-package com.barnav.vidsrctv;
+package com.barnav.beam;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -12,6 +12,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -22,13 +23,17 @@ import android.widget.FrameLayout;
 public class MainActivity extends Activity {
     private static final String HOME = "file:///android_asset/home.html";
     // Top-level navigation is only allowed to these hosts; everything else is treated as an ad redirect.
-    private static final String[] ALLOWED_HOSTS = {"vidsrc.to", "vidsrc.me", "vidsrc.xyz", "vidsrc.net", "vidsrc.cc"};
+    private static final String[] ALLOWED_HOSTS = {"vidsrc.to", "vidsrc.me", "vidsrc.xyz", "vidsrc.net", "vidsrc.cc",
+            "vidlink.pro", "embedwave.cc"};
 
     private FrameLayout root;
     private WebView web;
     private CursorView cursor;
     private View fullscreenView;
     private WebChromeClient.CustomViewCallback fullscreenCallback;
+    private boolean centerLongPressed;
+    // Set by the page while its player overlay is open: D-pad drives the cursor instead of page navigation
+    private volatile boolean playerMode;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -56,9 +61,22 @@ public class MainActivity extends Activity {
         s.setUserAgentString("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                 + "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36");
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
-        web.addJavascriptInterface(new Bridge(web), "Native");
+        web.addJavascriptInterface(new Object() {
+            @JavascriptInterface
+            public void setPlayerMode(boolean on) {
+                runOnUiThread(() -> {
+                    playerMode = on;
+                    cursor.setVisibility(on ? View.VISIBLE : View.GONE);
+                });
+            }
+        }, "Native");
 
         web.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                playerMode = false;
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
                 // Only police top-level navigations; the player itself lives in third-party iframes
@@ -91,7 +109,11 @@ public class MainActivity extends Activity {
         });
 
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
-        else web.loadUrl(HOME);
+        else goHome();
+    }
+
+    private void goHome() {
+        web.loadUrl(HOME + "?k=" + Uri.encode(BuildConfig.TMDB_KEY) + "&v=" + BuildConfig.VERSION_CODE);
     }
 
     private static boolean isAllowed(Uri uri) {
@@ -111,9 +133,15 @@ public class MainActivity extends Activity {
 
         if (code == KeyEvent.KEYCODE_BACK) {
             if (!down) return true;
+            if (e.getRepeatCount() > 0) return true;
             if (fullscreenView != null) { web.getWebChromeClient().onHideCustomView(); return true; }
-            if (web.canGoBack()) { web.goBack(); return true; }
-            return super.dispatchKeyEvent(e);
+            // Our own pages get first go at BACK (closing menus etc.); onBack() returns true if it handled it
+            web.evaluateJavascript("window.onBack?onBack():false", handled -> {
+                if ("true".equals(handled)) return;
+                if (web.canGoBack()) web.goBack();
+                else finish();
+            });
+            return true;
         }
 
         // Play/pause remote buttons -> toggle the first video on the page (including iframes we can reach)
@@ -125,13 +153,14 @@ public class MainActivity extends Activity {
         }
 
         if (code == KeyEvent.KEYCODE_MENU || code == KeyEvent.KEYCODE_SEARCH) {
-            if (down) { if (fullscreenView != null) web.getWebChromeClient().onHideCustomView(); web.loadUrl(HOME); }
+            if (down) { if (fullscreenView != null) web.getWebChromeClient().onHideCustomView(); goHome(); }
             return true;
         }
 
         // The home page is built for the D-pad, so no cursor there
-        if (onHome()) {
+        if (onHome() && !playerMode) {
             cursor.setVisibility(View.GONE);
+            if (isCenter(code)) return handleCenterOnHome(e);
             return super.dispatchKeyEvent(e);
         }
         cursor.setVisibility(View.VISIBLE);
@@ -153,6 +182,30 @@ public class MainActivity extends Activity {
         return super.dispatchKeyEvent(e);
     }
 
+    private static boolean isCenter(int code) {
+        return code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER
+                || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
+    }
+
+    /** OK is held back until release so a long hold can open the page's item menu instead of clicking. */
+    private boolean handleCenterOnHome(KeyEvent e) {
+        if (e.getAction() == KeyEvent.ACTION_DOWN) {
+            if (e.getRepeatCount() == 0) centerLongPressed = false;
+            else if (!centerLongPressed && (e.isLongPress() || e.getRepeatCount() >= 8)) {
+                centerLongPressed = true;
+                web.evaluateJavascript("window.onLongPress&&onLongPress()", null);
+            }
+            return true;
+        }
+        if (!centerLongPressed) {
+            super.dispatchKeyEvent(new KeyEvent(e.getDownTime(), e.getDownTime(), KeyEvent.ACTION_DOWN,
+                    e.getKeyCode(), 0, e.getMetaState(), e.getDeviceId(), e.getScanCode(), e.getFlags(), e.getSource()));
+            super.dispatchKeyEvent(e);
+        }
+        centerLongPressed = false;
+        return true;
+    }
+
     private boolean onHome() {
         String url = web.getUrl();
         return url == null || url.startsWith(HOME);
@@ -172,6 +225,9 @@ public class MainActivity extends Activity {
         if (ny < 0 && fullscreenView == null) { web.scrollBy(0, (int) dy * 3); ny = 0; }
         if (ny > h - 1 && fullscreenView == null) { web.scrollBy(0, (int) dy * 3); ny = h - 1; }
         cursor.moveTo(Math.max(0, Math.min(w - 1, nx)), Math.max(0, Math.min(h - 1, ny)));
+        // Lets the player show its top bar when the cursor heads up there
+        if (playerMode) web.evaluateJavascript(
+                "window.onCursor&&onCursor(" + cursor.x / w + "," + cursor.y / h + ")", null);
     }
 
     private void click() {

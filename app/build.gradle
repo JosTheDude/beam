@@ -1,15 +1,21 @@
 plugins { id 'com.android.application' }
 
 android {
-    namespace 'com.barnav.vidsrctv'
+    namespace 'com.barnav.beam'
     compileSdk 35
     defaultConfig {
         applicationId 'com.barnav.vidsrctv'
         minSdk 21
         targetSdk 35
-        versionCode 4
+        versionCode 15
         versionName '1.0'
+
+        def local = new Properties()
+        def f = rootProject.file('local.properties')
+        if (f.exists()) f.withInputStream { local.load(it) }
+        buildConfigField 'String', 'TMDB_KEY', "\"${local.getProperty('tmdb.key', '')}\""
     }
+    buildFeatures { buildConfig true }
     buildTypes {
         release {
             minifyEnabled false

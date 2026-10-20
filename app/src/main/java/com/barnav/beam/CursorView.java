@@ -1,4 +1,4 @@
-package com.barnav.vidsrctv;
+package com.barnav.beam;
 
 import android.content.Context;
 import android.graphics.Canvas;
