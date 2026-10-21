@@ -32,6 +32,7 @@ public class MainActivity extends Activity {
     private View fullscreenView;
     private WebChromeClient.CustomViewCallback fullscreenCallback;
     private boolean centerLongPressed;
+    private Updater updater;
     // Set by the page while its player overlay is open: D-pad drives the cursor instead of page navigation
     private volatile boolean playerMode;
 
@@ -107,6 +108,8 @@ public class MainActivity extends Activity {
                 web.setVisibility(View.VISIBLE);
             }
         });
+
+        updater = new Updater(this);
 
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
         else goHome();
@@ -255,7 +258,7 @@ public class MainActivity extends Activity {
     protected void onPause() { super.onPause(); web.onPause(); }
 
     @Override
-    protected void onResume() { super.onResume(); web.onResume(); }
+    protected void onResume() { super.onResume(); web.onResume(); updater.maybeCheck(); }
 
     @Override
     protected void onDestroy() {

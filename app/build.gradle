@@ -7,13 +7,15 @@ android {
         applicationId 'com.barnav.vidsrctv'
         minSdk 21
         targetSdk 35
-        versionCode 15
+        versionCode 17
         versionName '1.0'
 
         def local = new Properties()
         def f = rootProject.file('local.properties')
         if (f.exists()) f.withInputStream { local.load(it) }
         buildConfigField 'String', 'TMDB_KEY', "\"${local.getProperty('tmdb.key', '')}\""
+        // Self-update server (see publish.sh); leave unset to build without the updater
+        buildConfigField 'String', 'UPDATE_URL', "\"${local.getProperty('update.url', '')}\""
     }
     buildFeatures { buildConfig true }
     buildTypes {

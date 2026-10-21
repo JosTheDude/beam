@@ -6,5 +6,7 @@ perl -pi -e 's/versionCode (\d+)/"versionCode ".($1+1)/e' app/build.gradle
 grep versionCode app/build.gradle
 JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew assembleDebug -q
 cd app/build/outputs/apk/debug && cp app-debug.apk beam.apk && cp app-debug.apk vidsrc.apk
+# Beam's self-updater (update.url in local.properties) polls this
+sed -n 's/.*versionCode \([0-9]*\).*/{"versionCode":\1}/p' ../../../../build.gradle > version.json
 echo "Serving at http://100.118.231.16:8000/beam.apk (also /vidsrc.apk) (Ctrl+C to stop)"
 python3 -m http.server 8000
